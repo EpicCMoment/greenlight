@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -20,9 +21,27 @@ func (app *application) routes() *httprouter.Router {
 
 func (app *application) healthcheckHandler(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Fprintln(w, "status: available")
-	fmt.Fprintf(w, "environment: %s\n", app.config.env)
-	fmt.Fprintf(w, "version: %s\n", version)
+	data := map[string]string {
+		"status": "available",
+		"environment": app.config.env,
+		"version": version,
+	}
+
+	js, err := json.Marshal(data)
+
+	// an error occured while marshalling
+	if err != nil {
+		app.logger.Println(err)
+		http.Error(w, "The server encountered a problem and could not process your request", http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+
+
+	js = append(js, '\n')
+
+	w.Write(js)
 
 }
 
