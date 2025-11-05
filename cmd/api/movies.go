@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -10,7 +9,17 @@ import (
 
 func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Fprintln(w, "creating a movie ...")
+	var movieData models.Movie
+
+	err := readJSON(w, r, &movieData)
+
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	// if decoding is successful
+	app.infoLogger.Printf("%+v\n", movieData)
 
 }
 
@@ -37,7 +46,7 @@ func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request)
 	err = app.writeJSON(w, http.StatusOK, movieEnvelope, nil)
 
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.errorResponse(w, r, http.StatusBadRequest, err.Error())
 		return
 
 	}
