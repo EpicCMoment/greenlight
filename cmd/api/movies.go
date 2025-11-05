@@ -9,17 +9,23 @@ import (
 
 func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Request) {
 
-	var movieData models.Movie
+	var input models.Movie
 
-	err := readJSON(w, r, &movieData)
+	err := readJSON(w, r, &input)
 
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
-	// if decoding is successful
-	app.infoLogger.Printf("%+v\n", movieData)
+	validationErrors := input.Validate()
+
+	if validationErrors != nil {
+		app.failedValidationResponse(w, r, validationErrors)
+		return
+	}
+
+	app.infoLogger.Printf("%+v\n", input)
 
 }
 

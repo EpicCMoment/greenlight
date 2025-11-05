@@ -58,6 +58,9 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, dt envelope
 // `destination` should be a non nil pointer
 func readJSON(w http.ResponseWriter, r *http.Request, destination any) error {
 
+	maxBytes := 1_048_576
+	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
+
 	bodyDecoder := json.NewDecoder(r.Body)
 	bodyDecoder.DisallowUnknownFields()
 
