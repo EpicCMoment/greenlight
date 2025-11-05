@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ariffil/greenlight/internal/data"
+	"github.com/ariffil/greenlight/internal/models"
 )
 
 func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +23,7 @@ func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	movie := data.Movie{
+	movie := models.Movie{
 		Id:        movieID,
 		CreatedAt: time.Now(),
 		Title:     "Casablanca",
