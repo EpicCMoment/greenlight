@@ -1,10 +1,17 @@
 package models
 
 import (
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/ariffil/greenlight/internal/validator"
+	"github.com/lib/pq"
 )
+
+type MovieModel struct {
+	DB *sql.DB
+}
 
 type Movie struct {
 	Id        int64     `json:"id"`
@@ -14,6 +21,53 @@ type Movie struct {
 	Runtime   Runtime   `json:"runtime,omitempty"`
 	Genres    []string  `json:"genres,omitempty"`
 	Version   int       `json:"version"`
+}
+
+func (m MovieModel) Insert(movie *Movie) error {
+
+	stmt := `INSERT INTO movies (title, year, runtime, genres)
+	VALUES ($1, $2, $3, $4) RETURNING id, created_at, version`
+
+	row := m.DB.QueryRow(stmt, movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres))
+
+	err := row.Scan(&movie.Id, &movie.CreatedAt, &movie.Version)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (m MovieModel) Delete(id int) error {
+	return nil
+}
+
+func (m MovieModel) Get(id int) (*Movie, error) {
+
+	if id < 0 {
+		return nil, errors.New("id can't be less than 0")
+	}
+
+	stmt := `SELECT * FROM movies WHERE $1 = id`
+
+	rows := m.DB.QueryRow(stmt, id)
+
+	var data Movie
+
+	err := rows.Scan(&data.Id, &data.CreatedAt, &data.Title, &data.Year, &data.Runtime, pq.Array(&data.Genres), &data.Version)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &data, nil
+
+}
+
+func (m MovieModel) Update(movie *Movie) error {
+	return nil
 }
 
 // if valid: returns `true`

@@ -2,12 +2,12 @@ package main
 
 import (
 	"database/sql"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 
+	"github.com/ariffil/greenlight/internal/models"
 	_ "github.com/lib/pq"
 )
 
@@ -16,6 +16,11 @@ const version = "1.0.0"
 type config struct {
 	port int
 	env  string
+	db   struct {
+		maxOpenConns int
+		maxIdleConns int
+		maxIdleTime  string
+	}
 }
 
 type application struct {
@@ -23,20 +28,17 @@ type application struct {
 	infoLogger  *log.Logger
 	errorLogger *log.Logger
 	db          *sql.DB
+	models      models.Models
 }
 
 func main() {
 
 	var cfg config
+	cfg.parseCmdFlags()
 
 	app := application{
 		config: &cfg,
 	}
-
-	flag.IntVar(&cfg.port, "port", 4000, "API server port")
-	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
-
-	flag.Parse()
 
 	app.initializeLoggers()
 

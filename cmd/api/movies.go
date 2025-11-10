@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/ariffil/greenlight/internal/models"
 )
@@ -25,7 +25,24 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	app.infoLogger.Printf("%+v\n", input)
+	err = app.models.Movies.Insert(&input)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/movies/%d", input.Id))
+
+	response := envelope{"status": "success"}
+
+	err = app.writeJSON(w, http.StatusCreated, response, headers)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 
 }
 
@@ -38,13 +55,11 @@ func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	movie := models.Movie{
-		Id:        movieID,
-		CreatedAt: time.Now(),
-		Title:     "Casablanca",
-		Runtime:   102,
-		Genres:    []string{"drama", "romance", "war"},
-		Version:   1,
+	movie, err := app.models.Movies.Get(int(movieID))
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
 	}
 
 	movieEnvelope := envelope{"movie": movie}
