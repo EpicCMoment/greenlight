@@ -1,11 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
 const version = "1.0.0"
@@ -16,25 +19,32 @@ type config struct {
 }
 
 type application struct {
-	config      config
+	config      *config
 	infoLogger  *log.Logger
 	errorLogger *log.Logger
+	db          *sql.DB
 }
 
 func main() {
 
 	var cfg config
 
+	app := application{
+		config: &cfg,
+	}
+
 	flag.IntVar(&cfg.port, "port", 4000, "API server port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
 
 	flag.Parse()
 
-	app := application{
-		config: cfg,
-	}
-
 	app.initializeLoggers()
+
+	err := app.openDB()
+
+	if err != nil {
+		app.errorLogger.Fatalln(err.Error())
+	}
 
 	router := app.routes()
 
@@ -47,7 +57,7 @@ func main() {
 	}
 
 	app.infoLogger.Printf("starting %s server on http://%s", cfg.env, srv.Addr)
-	err := srv.ListenAndServe()
+	err = srv.ListenAndServe()
 
 	app.errorLogger.Fatal(err)
 
