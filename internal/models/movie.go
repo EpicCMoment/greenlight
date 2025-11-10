@@ -9,6 +9,10 @@ import (
 	"github.com/lib/pq"
 )
 
+const (
+	ErrRecordNotFound = "requested data doesn't exist"
+)
+
 type MovieModel struct {
 	DB *sql.DB
 }
@@ -41,7 +45,13 @@ func (m MovieModel) Insert(movie *Movie) error {
 }
 
 func (m MovieModel) Delete(id int) error {
-	return nil
+
+	stmt := `DELETE FROM movies WHERE id = $1`
+
+	_, err := m.DB.Exec(stmt, id)
+
+	return err
+
 }
 
 func (m MovieModel) Get(id int) (*Movie, error) {
@@ -59,7 +69,15 @@ func (m MovieModel) Get(id int) (*Movie, error) {
 	err := rows.Scan(&data.Id, &data.CreatedAt, &data.Title, &data.Year, &data.Runtime, pq.Array(&data.Genres), &data.Version)
 
 	if err != nil {
-		return nil, err
+
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, errors.New(ErrRecordNotFound)
+
+		default:
+			return nil, err
+		}
+
 	}
 
 	return &data, nil
@@ -67,7 +85,24 @@ func (m MovieModel) Get(id int) (*Movie, error) {
 }
 
 func (m MovieModel) Update(movie *Movie) error {
-	return nil
+
+	stmt := `UPDATE movies SET title = $1, year = $2, runtime = $3,
+	genres = $4, version = version + 1 WHERE id = $5 RETURNING version`
+
+	params := []any{
+		movie.Title,
+		movie.Year,
+		movie.Runtime,
+		pq.Array(movie.Genres),
+		movie.Id,
+	}
+
+	row := m.DB.QueryRow(stmt, params...)
+
+	err := row.Scan(&movie.Version)
+
+	return err
+
 }
 
 // if valid: returns `true`
