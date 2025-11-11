@@ -9,10 +9,6 @@ import (
 	"github.com/lib/pq"
 )
 
-const (
-	ErrRecordNotFound = "requested data doesn't exist"
-)
-
 type MovieModel struct {
 	DB *sql.DB
 }
@@ -48,19 +44,33 @@ func (m MovieModel) Delete(id int) error {
 
 	stmt := `DELETE FROM movies WHERE id = $1`
 
-	_, err := m.DB.Exec(stmt, id)
+	res, err := m.DB.Exec(stmt, id)
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrResourceNotFound
+	}
+
+	return nil
 
 }
 
-func (m MovieModel) Get(id int) (*Movie, error) {
+func (m MovieModel) Get(id int64) (*Movie, error) {
 
 	if id < 0 {
 		return nil, errors.New("id can't be less than 0")
 	}
 
-	stmt := `SELECT * FROM movies WHERE $1 = id`
+	stmt := `SELECT id, created_at, title, year, runtime, genres, version FROM movies WHERE $1 = id`
 
 	rows := m.DB.QueryRow(stmt, id)
 
@@ -72,7 +82,7 @@ func (m MovieModel) Get(id int) (*Movie, error) {
 
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
-			return nil, errors.New(ErrRecordNotFound)
+			return nil, ErrResourceNotFound
 
 		default:
 			return nil, err

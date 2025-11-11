@@ -1,6 +1,8 @@
 package main
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -55,11 +57,11 @@ func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	movie, err := app.models.Movies.Get(int(movieID))
+	movie, err := app.models.Movies.Get(movieID)
 
 	if err != nil {
 
-		if err.Error() == models.ErrRecordNotFound {
+		if errors.Is(err, models.ErrResourceNotFound) {
 			app.notFoundResponse(w, r)
 		} else {
 			app.serverErrorResponse(w, r, err)
@@ -89,8 +91,26 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var input models.Movie
-	input.Id = id
+	requestedMovie, err := app.models.Movies.Get(id)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrResourceNotFound):
+			app.notFoundResponse(w, r)
+
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+
+		return
+	}
+
+	input := struct {
+		Title   *string         `json:"title"`
+		Year    *int32          `json:"year"`
+		Runtime *models.Runtime `json:"runtime"`
+		Genres  []string        `json:"genres"`
+	}{}
 
 	err = readJSON(w, r, &input)
 
@@ -99,10 +119,42 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err = app.models.Movies.Update(&input)
+	// if partial request is sent, update the struct partially
+	if input.Title != nil {
+		requestedMovie.Title = *input.Title
+	}
+
+	if input.Year != nil {
+		requestedMovie.Title = *input.Title
+	}
+
+	if input.Runtime != nil {
+		requestedMovie.Runtime = *input.Runtime
+	}
+
+	if input.Genres != nil {
+		requestedMovie.Genres = input.Genres
+	}
+
+	validationErrors := requestedMovie.Validate()
+
+	if len(validationErrors) != 0 {
+		app.failedValidationResponse(w, r, validationErrors)
+		return
+	}
+
+	err = app.models.Movies.Update(requestedMovie)
 
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			app.notFoundResponse(w, r)
+
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+
 		return
 	}
 
@@ -131,8 +183,19 @@ func (app *application) deleteMovieHandler(w http.ResponseWriter, r *http.Reques
 	err = app.models.Movies.Delete(int(id))
 
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+
+		switch {
+
+		case errors.Is(err, models.ErrResourceNotFound):
+			app.notFoundResponse(w, r)
+
+		default:
+			app.serverErrorResponse(w, r, err)
+
+		}
+
 		return
+
 	}
 
 	response := envelope{
